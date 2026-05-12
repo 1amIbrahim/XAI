@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project-specific outputs (auto-generated, do not commit)
+data/processed/
+saved_models/*.pkl
+reports/shap/
+reports/fairness/
