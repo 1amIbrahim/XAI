@@ -36,7 +36,7 @@ def build_sensitive_cols(X_test: pd.DataFrame) -> pd.DataFrame:
     sensitive = df_orig.loc[X_test.index, ["sex_label", "age_group"]].copy()
 
     X_fair = X_test.copy()
-    X_fair["sex"] = sensitive["sex_label"].values
+    X_fair["sex_label"] = sensitive["sex_label"].values   # readable label, doesn't overwrite numeric sex
     X_fair["age_group"] = sensitive["age_group"].values
     return X_fair
 
@@ -79,7 +79,7 @@ def run_heart_disease():
 
     X_test_fair = build_sensitive_cols(X_test)
 
-    sensitive_cols = ["sex", "age_group"]
+    sensitive_cols = ["sex_label", "age_group"]
     model_name = "random_forest"
 
     model = ModelTrainer.load("heart_disease", model_name)

@@ -15,7 +15,12 @@ class FairnessAnalyzer:
         self.model = model
         self.X_test = X_test.copy()
         self.y_test = y_test.copy()
-        self.y_pred = model.predict(X_test)
+        # Use only the features the model was trained on (ignores added sensitive columns)
+        if hasattr(model, "feature_names_in_"):
+            predict_cols = list(model.feature_names_in_)
+            self.y_pred = model.predict(X_test[predict_cols])
+        else:
+            self.y_pred = model.predict(X_test)
 
     def demographic_parity(self, sensitive_col: str) -> dict:
         """Positive prediction rate per group — equal rates = fair."""
