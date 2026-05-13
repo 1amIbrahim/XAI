@@ -40,30 +40,21 @@ class AdultPreprocessor(BasePreprocessor):
         return self.df
 
     def clean(self) -> pd.DataFrame:
-        # TODO (Salman): handle missing values encoded as "?"
-        # Step 1: replace "?" with NaN
-        #   self.df.replace("?", pd.NA, inplace=True)
-        # Step 2: drop rows with NaN (or fill with mode)
-        #   self.df.dropna(inplace=True)
-        # Step 3: strip whitespace from target column
-        #   self.df[ADULT_TARGET] = self.df[ADULT_TARGET].str.strip()
-        raise NotImplementedError("Salman: implement clean()")
+        self.df.replace("?", pd.NA, inplace=True)
+        self.df.dropna(inplace=True)
+        self.df[ADULT_TARGET] = self.df[ADULT_TARGET].str.strip()
+        return self.df
 
     def encode(self) -> pd.DataFrame:
-        # TODO (Salman): encode categorical columns with LabelEncoder
-        # Also binarise the target: <=50K → 0, >50K → 1
-        # Example:
-        #   for col in self.categorical_cols:
-        #       le = LabelEncoder()
-        #       self.df[col] = le.fit_transform(self.df[col].astype(str))
-        #       self.label_encoders[col] = le
-        #   self.df[ADULT_TARGET] = (self.df[ADULT_TARGET] == ">50K").astype(int)
-        raise NotImplementedError("Salman: implement encode()")
+        for col in self.categorical_cols:
+            le = LabelEncoder()
+            self.df[col] = le.fit_transform(self.df[col].astype(str))
+            self.label_encoders[col] = le
+        self.df[ADULT_TARGET] = (self.df[ADULT_TARGET] == ">50K").astype(int)
+        return self.df
 
     def scale(self) -> pd.DataFrame:
-        # TODO (Salman): scale numerical columns with StandardScaler
-        # Example:
-        #   self.df[self.numerical_cols] = self.scaler.fit_transform(
-        #       self.df[self.numerical_cols]
-        #   )
-        raise NotImplementedError("Salman: implement scale()")
+        self.df[self.numerical_cols] = self.scaler.fit_transform(
+            self.df[self.numerical_cols]
+        )
+        return self.df
