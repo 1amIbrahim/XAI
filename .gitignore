@@ -2,10 +2,10 @@
 __pycache__/
 *.py[codz]
 *$py.class
-
+/.claude
 # C extensions
 *.so
-
+*.pdf
 # Distribution / packaging
 .Python
 build/
@@ -222,3 +222,6 @@ data/processed/
 saved_models/*.pkl
 reports/shap/
 reports/fairness/
+
+/.cluade
+/data/adult

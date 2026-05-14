@@ -7,11 +7,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import accuracy_score, classification_report
 
 from src.preprocessing.adult import AdultPreprocessor
 from src.models.base import ModelTrainer
-from config import ADULT_TARGET
+from config import ADULT_TARGET, VISUALIZATIONS_DIR
 
 # Tuned models for the Adult Income dataset
 ADULT_MODELS = {
@@ -35,13 +34,15 @@ def main():
         print(f"  Trained: {name}")
 
     print("\n=== Adult Income: Evaluation ===")
-    for name, model in trainer.trained.items():
-        y_pred = model.predict(X_test)
-        acc = accuracy_score(y_test, y_pred)
-        print(f"  {name}: accuracy={acc:.4f}")
+    trainer.evaluate_all(X_test, y_test)
 
     print("\n=== Adult Income: Saving Models ===")
     trainer.save_all()
+
+    print("\n=== Adult Income: Saving Visualizations ===")
+    vis_dir = os.path.join(VISUALIZATIONS_DIR, "training", "adult")
+    trainer.plot_results(X_test, y_test, vis_dir)
+
     print("\nDone. Models saved to saved_models/")
 
 
