@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"c:\\\\Users\\\\HP\\\\Desktop\\\\ML-project\\\\XAI\\\\saved_models\" 2>&1 && ls \"c:\\\\Users\\\\HP\\\\Desktop\\\\ML-project\" 2>&1)",
+      "Read(//c/Users/HP/Desktop/ML-project/**)",
+      "Bash(pip --version)",
+      "Bash(pip list *)",
+      "Bash(findstr -i \"pandas sklearn scikit shap matplotlib seaborn fastapi streamlit joblib\")"
+    ]
+  }
+}
