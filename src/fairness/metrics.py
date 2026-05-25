@@ -15,40 +15,56 @@ class FairnessAnalyzer:
         self.model = model
         self.X_test = X_test.copy()
         self.y_test = y_test.copy()
-        self.y_pred = model.predict(X_test)
+        # Use only the features the model was trained on (ignores added sensitive columns)
+        if hasattr(model, "feature_names_in_"):
+            predict_cols = list(model.feature_names_in_)
+            self.y_pred = model.predict(X_test[predict_cols])
+        else:
+            self.y_pred = model.predict(X_test)
 
     def demographic_parity(self, sensitive_col: str) -> dict:
-        """Positive prediction rate per group — equal rates = fair.
-
-        TODO (Rabiya): for each unique value in sensitive_col, compute
-        fraction of positive predictions and return as dict.
-        Example output: {"Male": 0.31, "Female": 0.11}
-        Interpretation: large gap = model predicts positively more for one group.
-        """
-        raise NotImplementedError("Rabiya: implement demographic_parity()")
+        """Positive prediction rate per group — equal rates = fair."""
+        result = {}
+        for group in self.X_test[sensitive_col].unique():
+            mask = self.X_test[sensitive_col] == group
+            result[group] = self.y_pred[mask].mean()
+        return result
 
     def equal_opportunity(self, sensitive_col: str) -> dict:
-        """True positive rate (recall) per group — equal TPR = fair.
-
-        TODO (Rabiya): for each group, compute TPR = TP / (TP + FN).
-        Example output: {"Male": 0.79, "Female": 0.53}
-        """
-        raise NotImplementedError("Rabiya: implement equal_opportunity()")
+        """True positive rate (recall) per group — equal TPR = fair."""
+        result = {}
+        y_test_arr = np.array(self.y_test)
+        y_pred_arr = np.array(self.y_pred)
+        for group in self.X_test[sensitive_col].unique():
+            mask = (self.X_test[sensitive_col] == group).values
+            positives = y_test_arr[mask] == 1
+            if positives.sum() == 0:
+                result[group] = float("nan")
+            else:
+                result[group] = y_pred_arr[mask][positives].mean()
+        return result
 
     def disparate_impact(self, sensitive_col: str) -> float:
-        """Ratio of lowest to highest positive prediction rate.
-
-        TODO (Rabiya): use demographic_parity() result.
-        ratio = min_rate / max_rate
-        Value < 0.8 is considered discriminatory (80% rule).
-        """
-        raise NotImplementedError("Rabiya: implement disparate_impact()")
+        """Ratio of lowest to highest positive prediction rate (80% rule: <0.8 = bias)."""
+        rates = self.demographic_parity(sensitive_col)
+        values = [v for v in rates.values() if not np.isnan(v) and v > 0]
+        if len(values) < 2:
+            return float("nan")
+        return min(values) / max(values)
 
     def full_report(self, sensitive_cols: list) -> pd.DataFrame:
-        """Compile all metrics for all sensitive columns into one DataFrame.
-
-        TODO (Rabiya): iterate sensitive_cols, call all three methods,
-        return a DataFrame with columns:
-          [sensitive_col, group, demographic_parity, equal_opportunity, disparate_impact]
-        """
-        raise NotImplementedError("Rabiya: implement full_report()")
+        """Compile all three metrics for every group across all sensitive columns."""
+        rows = []
+        for col in sensitive_cols:
+            dp = self.demographic_parity(col)
+            eo = self.equal_opportunity(col)
+            di = self.disparate_impact(col)
+            for group in dp:
+                rows.append({
+                    "sensitive_col": col,
+                    "group": group,
+                    "demographic_parity": round(dp[group], 4),
+                    "equal_opportunity": round(eo.get(group, float("nan")), 4),
+                    "disparate_impact": round(di, 4),
+                })
+        return pd.DataFrame(rows)
