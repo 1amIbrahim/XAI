@@ -16,7 +16,7 @@ from sklearn.metrics import accuracy_score, classification_report
 
 from src.preprocessing.adult import AdultPreprocessor
 from src.models.base import ModelTrainer
-from config import ADULT_TARGET
+from config import ADULT_TARGET, VISUALIZATIONS_DIR
 
 # ---------------------------------------------------------------------------
 # Hyperparameter search spaces

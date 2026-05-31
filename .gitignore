@@ -2,10 +2,10 @@
 __pycache__/
 *.py[codz]
 *$py.class
-
+/.claude
 # C extensions
 *.so
-
+*.pdf
 # Distribution / packaging
 .Python
 build/
@@ -222,3 +222,15 @@ data/processed/
 saved_models/*.pkl
 reports/shap/
 reports/fairness/
+visualizations/
+
+# Presentation notes
+presentation_script.md
+
+# JavaScript (pptxgenjs — not part of the ML project)
+node_modules/
+package.json
+package-lock.json
+
+/.cluade
+/data/adult

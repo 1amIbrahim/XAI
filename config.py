@@ -4,6 +4,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 SAVED_MODELS_DIR = os.path.join(ROOT_DIR, "saved_models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports")
+VISUALIZATIONS_DIR = os.path.join(ROOT_DIR, "visualizations")
 
 HEART_DISEASE_PATH = os.path.join(DATA_DIR, "heart_disease_data.csv")
 ADULT_PATH = os.path.join(DATA_DIR, "adult", "adult.data")
