@@ -68,23 +68,34 @@ class SHAPExplainer:
     # Compute SHAP values
     # ------------------------------------------------------------------
 
+    # Maximum test rows for each explainer type — keeps runtime reasonable
+    _MAX_SAMPLES = {
+        "logistic_regression": 2000,
+        "decision_tree":       500,
+        "random_forest":       500,
+        "neural_network":      150,
+    }
+
     def compute(self, X_test: pd.DataFrame) -> pd.DataFrame:
         """Compute SHAP values and return the (possibly sampled) test slice used.
 
-        KernelExplainer is slow — automatically sub-samples X_test to 150 rows.
-        All other explainers run on the full X_test.
+        Caps test-set size per model type to keep runtime reasonable:
+          - Random Forest / Decision Tree : 500 rows  (TreeExplainer is O(n*trees))
+          - Logistic Regression           : 2000 rows (LinearExplainer is fast)
+          - Neural Network                : 150 rows  (KernelExplainer is very slow)
 
-        Normalises the raw SHAP output to a 2-D array of shape
-        (n_samples, n_features) for the positive class (class 1), regardless
-        of whether the explainer returns a list, a 2-D array, or a 3-D array.
+        Normalises output to a 2-D array (n_samples, n_features) for class 1.
         """
         X_test = X_test.reset_index(drop=True)
+        max_n = self._MAX_SAMPLES[self.model_name]
+        X_sample = (
+            X_test.sample(max_n, random_state=42).reset_index(drop=True)
+            if len(X_test) > max_n else X_test
+        )
 
         if self.model_name == "neural_network":
-            X_sample = X_test.sample(min(150, len(X_test)), random_state=42).reset_index(drop=True)
             raw = self.explainer.shap_values(X_sample, nsamples=100, silent=True)
         else:
-            X_sample = X_test
             raw = self.explainer.shap_values(X_sample)
 
         n_samples, n_features = X_sample.shape[0], len(self.feature_names)
