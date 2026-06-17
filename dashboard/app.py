@@ -11,7 +11,13 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import shap
 
-from config import ADULT_TARGET, ADULT_SENSITIVE_COLS, REPORTS_DIR
+from config import (
+    ADULT_TARGET,
+    ADULT_SENSITIVE_COLS,
+    HEART_DISEASE_PATH,
+    HEART_DISEASE_TARGET,
+    REPORTS_DIR,
+)
 
 st.set_page_config(
     page_title="XAI — Income Prediction",
@@ -122,6 +128,34 @@ MODEL_LABELS = {
     "neural_network":      "Neural Network (MLP)",
 }
 LABEL_TO_KEY = {v: k for k, v in MODEL_LABELS.items()}
+DATASET_LABELS = {
+    "adult": "Adult Income",
+    "heart_disease": "Heart Disease",
+}
+LABEL_TO_DATASET = {v: k for k, v in DATASET_LABELS.items()}
+
+HD_SEX = {"Female": 0.0, "Male": 1.0}
+HD_CHEST_PAIN = {
+    "Typical angina": 1.0,
+    "Atypical angina": 2.0,
+    "Non-anginal pain": 3.0,
+    "Asymptomatic": 4.0,
+}
+HD_REST_ECG = {
+    "Normal": 0.0,
+    "ST-T abnormality": 1.0,
+    "Left ventricular hypertrophy": 2.0,
+}
+HD_SLOPE = {
+    "Upsloping": 1.0,
+    "Flat": 2.0,
+    "Downsloping": 3.0,
+}
+HD_THAL = {
+    "Normal": 3.0,
+    "Fixed defect": 6.0,
+    "Reversible defect": 7.0,
+}
 
 # ── Demo personas ─────────────────────────────────────────────────────────────
 # Each persona is designed to highlight a different aspect of the model or bias.
@@ -189,6 +223,119 @@ DEMO_PERSONAS = {
 }
 
 # Maps persona feature keys (with dashes) → session state keys (with underscores)
+HD_PRESETS = {
+    "low_risk": {
+        "emoji": "🏃",
+        "name": "Active Checkup",
+        "desc": "Female · 41 · atypical pain",
+        "badge": "Low risk",
+        "badge_color": "green",
+        "values": {
+            "hd_age": 41,
+            "hd_sex": "Female",
+            "hd_cp": "Atypical angina",
+            "hd_trestbps": 120,
+            "hd_chol": 204,
+            "hd_fbs": False,
+            "hd_restecg": "Normal",
+            "hd_thalach": 172,
+            "hd_exang": False,
+            "hd_oldpeak": 0.4,
+            "hd_slope": "Upsloping",
+            "hd_ca": 0,
+            "hd_thal": "Normal",
+        },
+    },
+    "borderline": {
+        "emoji": "📈",
+        "name": "Borderline Case",
+        "desc": "Male · 54 · mixed signals",
+        "badge": "Borderline",
+        "badge_color": "blue",
+        "values": {
+            "hd_age": 54,
+            "hd_sex": "Male",
+            "hd_cp": "Non-anginal pain",
+            "hd_trestbps": 135,
+            "hd_chol": 246,
+            "hd_fbs": False,
+            "hd_restecg": "ST-T abnormality",
+            "hd_thalach": 150,
+            "hd_exang": False,
+            "hd_oldpeak": 1.2,
+            "hd_slope": "Flat",
+            "hd_ca": 1,
+            "hd_thal": "Normal",
+        },
+    },
+    "high_risk": {
+        "emoji": "🫀",
+        "name": "High-Risk Senior",
+        "desc": "Male · 67 · vessels + thal",
+        "badge": "Disease likely",
+        "badge_color": "orange",
+        "values": {
+            "hd_age": 67,
+            "hd_sex": "Male",
+            "hd_cp": "Asymptomatic",
+            "hd_trestbps": 160,
+            "hd_chol": 286,
+            "hd_fbs": False,
+            "hd_restecg": "Left ventricular hypertrophy",
+            "hd_thalach": 108,
+            "hd_exang": True,
+            "hd_oldpeak": 1.5,
+            "hd_slope": "Flat",
+            "hd_ca": 3,
+            "hd_thal": "Reversible defect",
+        },
+    },
+    "exercise_angina": {
+        "emoji": "⚡",
+        "name": "Stress-Test Flag",
+        "desc": "Male · 58 · exercise angina",
+        "badge": "Needs review",
+        "badge_color": "purple",
+        "values": {
+            "hd_age": 58,
+            "hd_sex": "Male",
+            "hd_cp": "Asymptomatic",
+            "hd_trestbps": 128,
+            "hd_chol": 216,
+            "hd_fbs": False,
+            "hd_restecg": "Left ventricular hypertrophy",
+            "hd_thalach": 131,
+            "hd_exang": True,
+            "hd_oldpeak": 2.2,
+            "hd_slope": "Flat",
+            "hd_ca": 3,
+            "hd_thal": "Reversible defect",
+        },
+    },
+    "fairness_probe": {
+        "emoji": "⚖️",
+        "name": "Fairness Probe",
+        "desc": "Female · 62 · senior group",
+        "badge": "Audit case",
+        "badge_color": "purple",
+        "values": {
+            "hd_age": 62,
+            "hd_sex": "Female",
+            "hd_cp": "Asymptomatic",
+            "hd_trestbps": 150,
+            "hd_chol": 244,
+            "hd_fbs": False,
+            "hd_restecg": "Normal",
+            "hd_thalach": 154,
+            "hd_exang": True,
+            "hd_oldpeak": 1.4,
+            "hd_slope": "Flat",
+            "hd_ca": 0,
+            "hd_thal": "Normal",
+        },
+    },
+}
+
 _SS_KEY = {
     "age":            "feat_age",
     "workclass":      "feat_workclass",
@@ -222,17 +369,60 @@ _DEFAULTS = {
 # ── Cached loaders ────────────────────────────────────────────────────────────
 
 @st.cache_resource(show_spinner="Loading dataset and fitting preprocessor…")
-def load_preprocessor():
-    from src.preprocessing.adult import AdultPreprocessor
-    prep = AdultPreprocessor()
-    prep.run(ADULT_TARGET)
+def load_preprocessor(dataset_name: str = "adult"):
+    if dataset_name == "adult":
+        from src.preprocessing.adult import AdultPreprocessor
+        prep = AdultPreprocessor()
+        prep.run(ADULT_TARGET)
+    elif dataset_name == "heart_disease":
+        from src.preprocessing.heart_disease import HeartDiseasePreprocessor
+        prep = HeartDiseasePreprocessor()
+        prep.run(HEART_DISEASE_TARGET)
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
     return prep
 
 
 @st.cache_resource(show_spinner="Loading model…")
-def load_model(model_name: str):
+def load_model(model_name: str, dataset_name: str = "adult"):
     from src.models.base import ModelTrainer
-    return ModelTrainer.load("adult", model_name)
+    return ModelTrainer.load(dataset_name, model_name)
+
+
+def build_heart_disease_features() -> dict:
+    return {
+        "age": float(st.session_state["hd_age"]),
+        "sex": HD_SEX[st.session_state["hd_sex"]],
+        "cp": HD_CHEST_PAIN[st.session_state["hd_cp"]],
+        "trestbps": float(st.session_state["hd_trestbps"]),
+        "chol": float(st.session_state["hd_chol"]),
+        "fbs": 1.0 if st.session_state["hd_fbs"] else 0.0,
+        "restecg": HD_REST_ECG[st.session_state["hd_restecg"]],
+        "thalach": float(st.session_state["hd_thalach"]),
+        "exang": 1.0 if st.session_state["hd_exang"] else 0.0,
+        "oldpeak": float(st.session_state["hd_oldpeak"]),
+        "slope": HD_SLOPE[st.session_state["hd_slope"]],
+        "ca": float(st.session_state["hd_ca"]),
+        "thal": HD_THAL[st.session_state["hd_thal"]],
+    }
+
+
+def build_heart_fairness_frame(X_test: pd.DataFrame) -> pd.DataFrame:
+    df_orig = pd.read_csv(HEART_DISEASE_PATH)
+    df_orig = df_orig.fillna(df_orig.median(numeric_only=True))
+    df_orig = df_orig.drop_duplicates().reset_index(drop=True)
+    df_orig["sex_label"] = df_orig["sex"].map({0: "Female", 1: "Male"})
+    df_orig["age_group"] = pd.cut(
+        df_orig["age"],
+        bins=[0, 39, 60, 200],
+        labels=["Young (<40)", "Middle (40-60)", "Senior (>60)"],
+    )
+
+    X_fair = X_test.copy()
+    sensitive = df_orig.loc[X_test.index, ["sex_label", "age_group"]]
+    X_fair["sex_label"] = sensitive["sex_label"].values
+    X_fair["age_group"] = sensitive["age_group"].values
+    return X_fair
 
 
 # ── Live SHAP helper ──────────────────────────────────────────────────────────
@@ -280,7 +470,13 @@ def _live_shap_waterfall(model, model_name: str, X: pd.DataFrame, X_train: pd.Da
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 st.sidebar.markdown("## 🔍 XAI Dashboard")
-st.sidebar.markdown("*Adult Income · UCI Census 1994*")
+dataset_label = st.sidebar.selectbox("Dataset", list(DATASET_LABELS.values()))
+dataset_name = LABEL_TO_DATASET[dataset_label]
+dataset_tagline = (
+    "UCI Census 1994" if dataset_name == "adult"
+    else "UCI Cleveland Heart Disease"
+)
+st.sidebar.markdown(f"*{dataset_label} · {dataset_tagline}*")
 st.sidebar.divider()
 page = st.sidebar.selectbox("Navigate", ["Prediction", "Explanation", "Fairness"],
                              label_visibility="collapsed")
@@ -299,6 +495,184 @@ st.sidebar.caption("Department of AI · Semester 6 · 2026")
 # PREDICTION PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 if page == "Prediction":
+
+    if dataset_name == "heart_disease":
+        st.markdown("# Heart Disease Prediction")
+        st.markdown(
+            "Predict the presence of heart disease from clinical indicators, "
+            "compare all four models, and inspect a local SHAP explanation."
+        )
+
+        model_label = st.selectbox("Model", list(MODEL_LABELS.values()))
+        model_name = LABEL_TO_KEY[model_label]
+
+        hd_defaults = {
+            "hd_age": 54,
+            "hd_sex": "Male",
+            "hd_cp": "Asymptomatic",
+            "hd_trestbps": 130,
+            "hd_chol": 240,
+            "hd_fbs": False,
+            "hd_restecg": "Normal",
+            "hd_thalach": 150,
+            "hd_exang": False,
+            "hd_oldpeak": 1.0,
+            "hd_slope": "Flat",
+            "hd_ca": 0,
+            "hd_thal": "Normal",
+        }
+        for key, val in hd_defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = val
+
+        st.markdown('<p class="section-label">Quick patient presets — click to load</p>',
+                    unsafe_allow_html=True)
+        preset_cols = st.columns(5, gap="small")
+        for col, (pid, preset) in zip(preset_cols, HD_PRESETS.items()):
+            with col:
+                st.markdown(f"""
+                <div class="demo-card">
+                    <div class="demo-emoji">{preset['emoji']}</div>
+                    <div class="demo-name">{preset['name']}</div>
+                    <div class="demo-desc">{preset['desc']}</div>
+                    <span class="badge badge-{preset['badge_color']}">{preset['badge']}</span>
+                </div>""", unsafe_allow_html=True)
+                if st.button("Load", key=f"hd_preset_{pid}", use_container_width=True):
+                    for field, val in preset["values"].items():
+                        st.session_state[field] = val
+                    st.session_state.pop("heart_pred_result", None)
+                    st.rerun()
+
+        st.divider()
+
+        st.markdown('<p class="section-label">Patient features</p>',
+                    unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3, gap="medium")
+        with c1:
+            st.number_input("Age", min_value=20, max_value=90, key="hd_age")
+            st.radio("Sex", list(HD_SEX.keys()), key="hd_sex", horizontal=True)
+            st.selectbox("Chest Pain Type", list(HD_CHEST_PAIN.keys()), key="hd_cp")
+            st.number_input("Resting BP (mm Hg)", min_value=80, max_value=220, key="hd_trestbps")
+            st.number_input("Cholesterol (mg/dl)", min_value=100, max_value=650, key="hd_chol")
+        with c2:
+            st.checkbox("Fasting blood sugar > 120 mg/dl", key="hd_fbs")
+            st.selectbox("Resting ECG", list(HD_REST_ECG.keys()), key="hd_restecg")
+            st.number_input("Max Heart Rate", min_value=60, max_value=230, key="hd_thalach")
+            st.checkbox("Exercise-induced angina", key="hd_exang")
+        with c3:
+            st.number_input("Oldpeak", min_value=0.0, max_value=7.0, step=0.1, key="hd_oldpeak")
+            st.selectbox("ST Slope", list(HD_SLOPE.keys()), key="hd_slope")
+            st.number_input("Major vessels (0-3)", min_value=0, max_value=3, key="hd_ca")
+            st.selectbox("Thalassemia", list(HD_THAL.keys()), key="hd_thal")
+
+        if st.button("Predict Heart Disease", type="primary", use_container_width=True):
+            try:
+                prep = load_preprocessor("heart_disease")
+                model = load_model(model_name, "heart_disease")
+                features = build_heart_disease_features()
+                X = prep.transform_input(features)
+                prediction = int(model.predict(X)[0])
+                probability = float(model.predict_proba(X)[0][1])
+                st.session_state["heart_pred_result"] = {
+                    "prediction": prediction,
+                    "probability": probability,
+                    "features": features,
+                    "model_name": model_name,
+                    "model_label": model_label,
+                }
+            except Exception as exc:
+                st.error(f"Prediction failed: {exc}")
+
+        if "heart_pred_result" in st.session_state:
+            r = st.session_state["heart_pred_result"]
+            prediction = r["prediction"]
+            probability = r["probability"]
+            features = r["features"]
+            model_name = r["model_name"]
+            model_label = r["model_label"]
+
+            prep = load_preprocessor("heart_disease")
+            model = load_model(model_name, "heart_disease")
+            X = prep.transform_input(features)
+
+            st.divider()
+            label = "Heart disease likely" if prediction == 1 else "No heart disease predicted"
+            card_cls = "result-negative" if prediction == 1 else "result-positive"
+            rc, pc, sc = st.columns([1.4, 1.8, 1], gap="medium")
+            with rc:
+                st.markdown(f"""
+                <div class="result-card {card_cls}">
+                    <div class="result-label">{label}</div>
+                    <div class="result-prob">Predicted clinical class</div>
+                </div>""", unsafe_allow_html=True)
+            with pc:
+                st.metric("Probability of heart disease", f"{probability:.1%}",
+                          delta=f"{probability - 0.5:+.1%} vs 50/50")
+                st.progress(probability)
+            with sc:
+                st.metric("Model", model_label.replace(" (MLP)", ""))
+                st.metric("Age", int(features["age"]))
+
+            st.divider()
+            st.markdown("### Model Comparison")
+            comp_probs, comp_preds = {}, {}
+            for mn, ml in MODEL_LABELS.items():
+                try:
+                    m = load_model(mn, "heart_disease")
+                    comp_probs[ml] = float(m.predict_proba(X)[0][1])
+                    comp_preds[ml] = int(m.predict(X)[0])
+                except Exception:
+                    comp_probs[ml] = None
+
+            valid = {k: v for k, v in comp_probs.items() if v is not None}
+            names = list(valid.keys())
+            probs = list(valid.values())
+            colors = ["#ef4444" if p >= 0.6 else "#10b981" if p <= 0.4 else "#f59e0b"
+                      for p in probs]
+            fig_cmp, ax_cmp = plt.subplots(figsize=(8, 2.8))
+            bars = ax_cmp.barh(names, probs, color=colors, alpha=0.88, height=0.45)
+            ax_cmp.axvline(0.5, color="#888", linestyle="--", linewidth=1.2, alpha=0.6,
+                           label="Decision boundary (0.5)")
+            ax_cmp.set_xlim(0, 1.12)
+            ax_cmp.set_xlabel("P(heart disease)", fontsize=9)
+            ax_cmp.set_title("All-Model Probability Comparison", fontweight="bold", fontsize=11)
+            for bar, prob in zip(bars, probs):
+                ax_cmp.text(prob + 0.02, bar.get_y() + bar.get_height() / 2,
+                            f"{prob:.1%}", va="center", fontsize=9.5,
+                            fontweight="bold")
+            ax_cmp.legend(fontsize=8, loc="lower right")
+            ax_cmp.spines[["top", "right"]].set_visible(False)
+            plt.tight_layout()
+            st.pyplot(fig_cmp, use_container_width=True)
+            plt.close(fig_cmp)
+
+            votes = list(comp_preds.values())
+            n_pos = sum(votes)
+            n_total = len(votes)
+            if n_pos == n_total:
+                st.error(f"All {n_total} models predict heart disease.")
+            elif n_pos == 0:
+                st.success(f"All {n_total} models predict no heart disease.")
+            else:
+                st.info(f"Models split {n_pos}-{n_total - n_pos}; this case is near a decision boundary.")
+
+            st.divider()
+            st.markdown("### Why this prediction?")
+            if model_name == "neural_network":
+                st.info("Neural Network explanations use KernelExplainer and can take longer.")
+            with st.spinner("Computing SHAP explanation..."):
+                try:
+                    shap_fig, base_val = _live_shap_waterfall(model, model_name, X, prep.X_train)
+                    st.pyplot(shap_fig, use_container_width=True)
+                    plt.close("all")
+                    st.caption(
+                        f"Base value {base_val:.1%} is the model's average prediction. "
+                        f"The bars shift it to the final {probability:.1%}."
+                    )
+                except Exception as shap_err:
+                    st.warning(f"SHAP explanation unavailable: {shap_err}")
+
+        st.stop()
 
     st.markdown("# Income Prediction")
     st.markdown(
@@ -635,14 +1009,14 @@ if page == "Prediction":
 elif page == "Explanation":
     st.markdown("# SHAP Explanations")
     st.markdown(
-        "Pre-computed SHAP plots across the full test set. "
+        f"Pre-computed SHAP plots for **{dataset_label}** across the full test set. "
         "**Summary** shows global feature importance · **Waterfall** shows one sample's local explanation."
     )
 
     model_label = st.selectbox("Model", list(MODEL_LABELS.values()))
     model_name  = LABEL_TO_KEY[model_label]
 
-    shap_dir      = Path(REPORTS_DIR) / "shap" / "adult"
+    shap_dir      = Path(REPORTS_DIR) / "shap" / dataset_name
     summary_path  = shap_dir / f"{model_name}_summary.png"
     waterfall_path = shap_dir / f"{model_name}_waterfall.png"
     bar_path      = shap_dir / f"{model_name}_bar.png"
@@ -680,6 +1054,87 @@ elif page == "Explanation":
 # FAIRNESS PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 elif page == "Fairness":
+
+    if dataset_name == "heart_disease":
+        st.markdown("# Fairness Analysis")
+        st.markdown(
+            "Measures whether the heart disease model treats patient groups equitably. "
+            "Sensitive attributes: **sex** and **age group**."
+        )
+
+        model_label = st.selectbox("Model", list(MODEL_LABELS.values()))
+        model_name = LABEL_TO_KEY[model_label]
+
+        with st.expander("What do these metrics mean?", expanded=False):
+            st.markdown("""
+| Metric | Definition | Fair if... |
+|---|---|---|
+| **Demographic Parity** | Fraction of each group predicted positive | Rates are similar across groups |
+| **Equal Opportunity** | True positive rate (recall) per group | TPR is similar across groups |
+| **Disparate Impact** | Lowest rate divided by highest rate | Value >= 0.8 (80% rule) |
+            """)
+
+        try:
+            prep = load_preprocessor("heart_disease")
+            model = load_model(model_name, "heart_disease")
+            from src.fairness.metrics import FairnessAnalyzer
+
+            X_fair = build_heart_fairness_frame(prep.X_test)
+            sensitive_cols = ["sex_label", "age_group"]
+            analyzer = FairnessAnalyzer(model, X_fair, prep.y_test)
+            report = analyzer.full_report(sensitive_cols)
+
+            st.markdown('<p class="section-label">Disparate Impact Alerts</p>',
+                        unsafe_allow_html=True)
+            di_summary = report.groupby("sensitive_col")["disparate_impact"].first()
+            alert_cols = st.columns(len(di_summary))
+            for col, (attr, di) in zip(alert_cols, di_summary.items()):
+                with col:
+                    if di < 0.8:
+                        st.error(f"**{attr}**\n\nDI = {di:.3f}\n\nBias detected")
+                    else:
+                        st.success(f"**{attr}**\n\nDI = {di:.3f}\n\nWithin threshold")
+
+            st.divider()
+            tab_chart, tab_table = st.tabs(["Bar Charts", "Full Metrics Table"])
+
+            with tab_chart:
+                n = len(sensitive_cols)
+                fig, axes = plt.subplots(1, n, figsize=(6 * n, 4.5), squeeze=False)
+                for i, col in enumerate(sensitive_cols):
+                    ax = axes[0][i]
+                    subset = report[report["sensitive_col"] == col].copy()
+                    labels = [str(g) for g in subset["group"]]
+                    x, w = np.arange(len(subset)), 0.35
+                    ax.bar(x - w / 2, subset["demographic_parity"], w,
+                           label="Dem. Parity", color="#6366f1", alpha=0.85)
+                    ax.bar(x + w / 2, subset["equal_opportunity"], w,
+                           label="Equal Opp.", color="#f472b6", alpha=0.85)
+                    ax.axhline(0.8, color="red", linewidth=1, linestyle="--",
+                               alpha=0.5, label="0.8 threshold")
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(labels, rotation=25, ha="right", fontsize=8)
+                    ax.set_ylim(0, 1.05)
+                    ax.set_title(col.replace("_", " ").title(), fontsize=11, fontweight="bold")
+                    ax.legend(fontsize=7)
+                    ax.spines[["top", "right"]].set_visible(False)
+
+                plt.tight_layout()
+                fairness_dir = Path(REPORTS_DIR) / "fairness" / "heart_disease"
+                fairness_dir.mkdir(parents=True, exist_ok=True)
+                fig.savefig(str(fairness_dir / f"{model_name}_fairness.png"),
+                            bbox_inches="tight", dpi=150)
+                st.pyplot(fig)
+                plt.close(fig)
+
+            with tab_table:
+                st.dataframe(report, use_container_width=True, hide_index=True)
+
+        except Exception as exc:
+            st.error(f"Fairness analysis failed: {exc}")
+
+        st.stop()
+
     st.markdown("# Fairness Analysis")
     st.markdown(
         "Measures whether the model treats demographic groups equitably. "

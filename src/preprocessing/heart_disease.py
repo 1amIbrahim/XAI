@@ -25,3 +25,16 @@ class HeartDiseasePreprocessor(BasePreprocessor):
         self.feature_cols = [c for c in self.df.columns if c != "target"]
         self.df[self.feature_cols] = self.scaler.fit_transform(self.df[self.feature_cols])
         return self.df
+
+    def transform_input(self, features_dict: dict) -> pd.DataFrame:
+        """Apply the fitted scaler to one raw patient feature dictionary."""
+        if self.feature_cols is None:
+            self.feature_cols = [c for c in self.X_train.columns]
+
+        row = {
+            col: pd.to_numeric(features_dict.get(col, 0), errors="coerce")
+            for col in self.feature_cols
+        }
+        df = pd.DataFrame([row]).fillna(0.0)
+        df[self.feature_cols] = self.scaler.transform(df[self.feature_cols])
+        return df[list(self.X_train.columns)]
