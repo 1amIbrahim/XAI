@@ -220,7 +220,7 @@ __marimo__/
 # Project-specific outputs (auto-generated, do not commit)
 data/processed/
 
-reports/shap/
+
 reports/fairness/
 visualizations/
 
@@ -234,3 +234,5 @@ package-lock.json
 
 /.cluade
 /data/adult
+*.pptx
+script.md
